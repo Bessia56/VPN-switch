@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Адаптивная кнопка | API-управление</title>
+    <style>
+        /* ----- RESET & БАЗОВЫЕ СТИЛИ ----- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(145deg, #e0e5ec 0%, #f0f4fa 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .button-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* Основная круглая кнопка */
+        .toggle-btn {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            border: none;
+            background-color: #94a3b8;
+            box-shadow: 0 20px 35px -8px rgba(0, 0, 0, 0.3), 0 8px 12px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform, background-color, box-shadow;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* Активное состояние (синий) */
+        .toggle-btn.active {
+            background-color: #2563eb;
+            box-shadow: 0 20px 30px -10px rgba(37, 99, 235, 0.5);
+        }
+
+        /* Эффект нажатия */
+        .toggle-btn:active {
+            transform: scale(0.96);
+            transition: transform 0.08s ease;
+        }
+
+        .toggle-btn:focus-visible {
+            outline: 3px solid #1e40af;
+            outline-offset: 4px;
+        }
+
+        /* Блокировка кнопки во время запроса */
+        .toggle-btn.loading {
+            opacity: 0.7;
+            cursor: wait;
+            transform: scale(0.98);
+            pointer-events: none;
+        }
+
+        /* SVG иконки */
+        .icon-off, .icon-on {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-on {
+            display: none;
+        }
+
+        .toggle-btn.active .icon-off {
+            display: none;
+        }
+        .toggle-btn.active .icon-on {
+            display: flex;
+        }
+
+        .icon-svg-off, .icon-svg-on {
+            width: 100px;
+            height: 100px;
+            display: block;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));
+        }
+
+        /* Адаптивность */
+        @media (max-width: 560px) {
+            .toggle-btn {
+                width: 200px;
+                height: 200px;
+            }
+            .icon-svg-off, .icon-svg-on {
+                width: 85px;
+                height: 85px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .toggle-btn {
+                width: 170px;
+                height: 170px;
+            }
+            .icon-svg-off, .icon-svg-on {
+                width: 72px;
+                height: 72px;
+            }
+        }
+
+        /* Ститус-лейбл */
+        .status-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .status-label {
+            text-align: center;
+            margin-top: 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(4px);
+            padding: 8px 20px;
+            border-radius: 60px;
+            width: auto;
+            color: #1e293b;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+
+        /* Индикатор загрузки при старте */
+        .loading-overlay {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .loader-text {
+            font-size: 0.9rem;
+            color: #475569;
+            background: rgba(255,255,255,0.6);
+            padding: 6px 14px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Сообщение об ошибке */
+        .error-message {
+            color: #dc2626;
+            background: rgba(254, 226, 226, 0.9);
+            backdrop-filter: blur(4px);
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            margin-top: 16px;
+            text-align: center;
+            max-width: 90%;
+            word-break: break-word;
+        }
+
+        .success-message {
+            background: rgba(34, 197, 94, 0.9);
+            color: #14532d;
+        }
+
+        html, body {
+            overscroll-behavior: none;
+        }
+        .toggle-btn:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Индикатор загрузки начального состояния -->
+    <div class="loading-overlay" id="loadingIndicator">
+        <div class="loader-text">⏳ Загрузка статуса...</div>
+    </div>
+
+    <div class="button-container">
+        <button class="toggle-btn" id="powerButton" aria-label="Переключить состояние" disabled>
+            <!-- Иконка "ВЫКЛЮЧЕНО" (неактивное состояние) -->
+            <div class="icon-off">
+                <svg class="icon-svg-off" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="45" r="22" stroke="white" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+                    <line x1="50" y1="22" x2="50" y2="44" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+                    <circle cx="50" cy="45" r="26" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none"/>
+                </svg>
+            </div>
+            <!-- Иконка "ВКЛЮЧЕНО" (активное состояние) -->
+            <div class="icon-on">
+                <svg class="icon-svg-on" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="32" stroke="white" stroke-width="4.5" fill="rgba(255,255,255,0.15)"/>
+                    <path d="M55 26 L38 56 L50 56 L45 74 L62 44 L50 44 L55 26Z" 
+                          fill="white" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </button>
+    </div>
+
+    <div class="status-wrapper">
+        <div class="status-label" id="statusText">⚫ Загрузка...</div>
+    </div>
+    <div id="messageContainer" style="min-height: 70px; display: flex; flex-direction: column; align-items: center; gap: 8px;"></div>
+</div>
+
+<script>
+    (function() {
+        // DOM элементы
+        const button = document.getElementById('powerButton');
+        const statusSpan = document.getElementById('statusText');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const messageContainer = document.getElementById('messageContainer');
+
+        // Состояние кнопки (true = включено/активно/синий, false = выключено/серый)
+        let isActive = false;
+        
+        // Флаг блокировки кнопки во время запросов
+        let isRequestInProgress = false;
+        
+        // Базовый URL для API
+        const API_URL = '/api/status';
+
+        // --- Вспомогательные функции ---
+        function showMessage(message, isError = true) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'error-message';
+            if (!isError) {
+                msgDiv.style.background = 'rgba(34, 197, 94, 0.9)';
+                msgDiv.style.color = '#14532d';
+            }
+            msgDiv.innerHTML = isError ? `⚠️ ${message}` : `✅ ${message}`;
+            messageContainer.appendChild(msgDiv);
+            
+            // Авто-скрытие через 4 секунды
+            setTimeout(() => {
+                if (msgDiv.parentNode) msgDiv.remove();
+            }, 4000);
+        }
+
+        function clearMessages() {
+            // Не удаляем все, только старые сообщения можно чистить опционально
+            // Оставляем до 3 сообщений, чтобы не засорять
+            while (messageContainer.children.length > 3) {
+                messageContainer.removeChild(messageContainer.firstChild);
+            }
+        }
+
+        // Обновление UI кнопки и текста в зависимости от isActive
+        function updateUI() {
+            if (isActive) {
+                button.classList.add('active');
+                statusSpan.innerHTML = '⚡ Включено';
+                statusSpan.style.background = 'rgba(37, 99, 235, 0.2)';
+                statusSpan.style.color = '#1e3a8a';
+                button.setAttribute('aria-pressed', 'true');
+            } else {
+                button.classList.remove('active');
+                statusSpan.innerHTML = '🔴 Выключено';
+                statusSpan.style.background = 'rgba(100, 116, 139, 0.2)';
+                statusSpan.style.color = '#334155';
+                button.setAttribute('aria-pressed', 'false');
+            }
+        }
+
+        // Установка состояния загрузки (блокировка кнопки)
+        function setLoadingState(loading) {
+            isRequestInProgress = loading;
+            if (loading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
+
+        // Безопасное чтение ответа (поддержка пустых ответов и любых Content-Type)
+        async function safeParseResponse(response) {
+            const contentType = response.headers.get('content-type');
+            const contentLength = response.headers.get('content-length');
+            
+            // Если ответ пустой (нет тела) или content-length = 0
+            if (contentLength === '0' || response.status === 204) {
+                return null;
+            }
+            
+            // Пытаемся получить текст ответа
+            const text = await response.text();
+            
+            // Если текст пустой
+            if (!text || text.trim() === '') {
+                return null;
+            }
+            
+            // Если это JSON, парсим
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.warn('JSON parse error:', e, 'Raw text:', text);
+                    return null;
+                }
+            }
+            
+            // Для других типов просто возвращаем текст
+            return { _rawText: text };
+        }
+
+        // --- GET запрос при загрузке страницы ---
+        async function fetchInitialStatus() {
+            setLoadingState(true);
+            loadingIndicator.style.display = 'flex';
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Безопасно парсим ответ
+                const data = await safeParseResponse(response);
+                
+                // Обрабатываем полученные данные
+                if (data && typeof data === 'object' && data.status) {
+                    const serverStatus = String(data.status).toLowerCase();
+                    if (serverStatus === 'on') {
+                        isActive = true;
+                    } else if (serverStatus === 'off') {
+                        isActive = false;
+                    } else {
+                        console.warn('Неизвестный статус:', data.status);
+                        isActive = false;
+                    }
+                } else if (data && typeof data === 'object' && data._rawText) {
+                    // Если пришел не JSON, пробуем распарсить как простую строку
+                    const rawText = data._rawText.toLowerCase();
+                    if (rawText === 'on' || rawText === '"on"' || rawText === "'on'") {
+                        isActive = true;
+                    } else if (rawText === 'off' || rawText === '"off"' || rawText === "'off'") {
+                        isActive = false;
+                    } else {
+                        isActive = false;
+                    }
+                } else {
+                    // Если ответ пустой или непонятный, оставляем текущее состояние (по умолчанию false)
+                    isActive = false;
+                }
+                
+                updateUI();
+                
+            } catch (error) {
+                console.error('GET /api/status error:', error);
+                let errorMsg = '';
+                if (error.name === 'AbortError') {
+                    errorMsg = 'Превышено время ожидания ответа от сервера';
+                } else {
+                    errorMsg = error.message || 'Не удалось загрузить статус';
+                }
+                showMessage(errorMsg, true);
+                // В случае ошибки оставляем кнопку в состоянии по умолчанию (выключено)
+                isActive = false;
+                updateUI();
+            } finally {
+                loadingIndicator.style.display = 'none';
+                setLoadingState(false);
+            }
+        }
+
+        // --- POST запрос для отправки нового статуса ---
+        async function sendStatusUpdate(newStatus) {
+            const bodyData = { status: newStatus }; // "on" или "off"
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(bodyData),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    let errorDetail = `HTTP ${response.status}`;
+                    try {
+                        // Пробуем прочитать текст ошибки
+                        const errorText = await response.text();
+                        if (errorText) {
+                            errorDetail += `: ${errorText.substring(0, 100)}`;
+                        }
+                    } catch(e) {}
+                    throw new Error(errorDetail);
+                }
+                
+                // Безопасно парсим ответ (может быть пустым)
+                const result = await safeParseResponse(response);
+                
+                // Если сервер вернул обновленный статус, синхронизируемся
+                if (result && typeof result === 'object' && result.status) {
+                    const returnedStatus = String(result.status).toLowerCase();
+                    const expectedIsActive = (returnedStatus === 'on');
+                    if (expectedIsActive !== isActive) {
+                        isActive = expectedIsActive;
+                        updateUI();
+                        showMessage(`Статус синхронизирован с сервером: ${returnedStatus === 'on' ? 'Вкл' : 'Выкл'}`, false);
+                    }
+                } else if (result && typeof result === 'object' && result._rawText) {
+                    const rawText = result._rawText.toLowerCase();
+                    if (rawText === 'ok' || rawText === 'success') {
+                        // Успешный ответ без статуса — всё ок
+                        console.log('Server confirmed success');
+                    }
+                }
+                
+                // Если ответ пустой (null) — считаем что запрос успешен
+                return true;
+                
+            } catch (error) {
+                console.error('POST /api/status error:', error);
+                let errorMsg = '';
+                if (error.name === 'AbortError') {
+                    errorMsg = 'Превышено время ожидания при отправке';
+                } else {
+                    errorMsg = error.message || 'Не удалось отправить статус';
+                }
+                showMessage(errorMsg, true);
+                return false;
+            }
+        }
+
+        // --- Переключение состояния (локальное + отправка на сервер) ---
+        async function toggleState() {
+            // Если уже выполняется запрос — игнорируем нажатие
+            if (isRequestInProgress) {
+                showMessage('Пожалуйста, подождите, идёт отправка...', false);
+                return;
+            }
+            
+            // Определяем, каким БУДЕТ новый статус после переключения
+            const newIsActive = !isActive;
+            const newStatus = newIsActive ? 'on' : 'off';
+            
+            // Сохраняем текущее состояние на случай отката при ошибке
+            const oldIsActive = isActive;
+            const oldStatusText = statusSpan.innerHTML;
+            
+            // Оптимистично обновляем UI (чтобы кнопка реагировала мгновенно)
+            isActive = newIsActive;
+            updateUI();
+            
+            // Добавляем легкую тактильную обратную связь
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(10);
+            }
+            
+            // Отправляем запрос на сервер
+            const success = await sendStatusUpdate(newStatus);
+            
+            if (!success) {
+                // Если запрос не удался — откатываем состояние к предыдущему
+                isActive = oldIsActive;
+                updateUI();
+                showMessage('Не удалось синхронизировать с сервером, состояние восстановлено', true);
+            } else {
+                // Успешно — показываем краткое уведомление
+                showMessage(`Статус изменён на ${newStatus === 'on' ? 'Включено' : 'Выключено'}`, false);
+                // Сохраняем в localStorage для кэша
+                try {
+                    localStorage.setItem('powerButtonState', isActive);
+                } catch(e) {}
+            }
+            
+            clearMessages();
+        }
+
+        // --- Инициализация и обработчики событий ---
+        async function init() {
+            // Сначала загружаем статус с сервера
+            await fetchInitialStatus();
+            
+            // После загрузки статуса активируем кнопку
+            button.disabled = false;
+            button.classList.remove('loading');
+            isRequestInProgress = false;
+            
+            // Добавляем обработчики событий
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleState();
+            });
+            
+            // Обработка клавиатуры (доступность)
+            button.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleState();
+                }
+            });
+        }
+        
+        // Запуск приложения
+        init();
+    })();
+</script>
+</body>
+</html>
