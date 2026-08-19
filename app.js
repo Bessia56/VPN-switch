@@ -3,6 +3,7 @@ const bodyParser = require("body-parser");
 const app = express();
 const yup = require("yup");
 const router = require("./router");
+const config = require("./read");
 app.use(express.json());
 
 
@@ -44,6 +45,6 @@ app.use((err, req, res, next) => {
 });
 
 
-app.listen(3002, () => {
+app.listen(config.serverPort, () => {
     console.log("Server running on port 3002");
 });

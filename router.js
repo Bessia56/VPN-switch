@@ -1,9 +1,5 @@
 const axios = require("axios");
-const fs = require("fs");
-const YAML = require("yaml");
-
-const file = fs.readFileSync("./config.yaml", "utf8");
-const config = YAML.parse(file);
+const config = require("./read");
 
 async function getStatus(){ 
     let result = await axios.post(config.URL, [

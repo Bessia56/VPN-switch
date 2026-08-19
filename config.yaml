@@ -1,3 +1,4 @@
 mac: "f0:b3:ec:0b:2f:bf"
 policy: "Policy3"
 URL: "http://192.168.1.1:8881/rci/"
+serverPort: 3002
