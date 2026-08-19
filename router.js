@@ -1,9 +1,12 @@
 const axios = require("axios");
-const config = require("./config.json");
+const fs = require("fs");
+const YAML = require("yaml");
 
+const file = fs.readFileSync("./config.yaml", "utf8");
+const config = YAML.parse(file);
 
 async function getStatus(){ 
-    let result = await axios.post("http://192.168.1.1:8881/rci/", [
+    let result = await axios.post(config.URL, [
         {
             show: {
                 sc: {
@@ -16,7 +19,6 @@ async function getStatus(){
             },
         },
     ]);
-    // console.log(result.data);
     let mac = config.mac;
     let hosts = result.data[0].show.sc.ip.hotspot.host;
     let hasPolicy = hosts.some((host) => {
@@ -31,7 +33,7 @@ async function getStatus(){
 }
 
 async function setStatus(status) {
-    let result = await axios.post("http://192.168.1.1:8881/rci/", [
+    let result = await axios.post(config.URL, [
         {
             ip: {
                 hotspot: {
