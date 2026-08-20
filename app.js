@@ -35,16 +35,24 @@ app.use((err, req, res, next) => {
             name: "Ошибка данных",
             error: err.message,
         });
-    } else {
-        console.error("[ERR]", req.url, err.message);
-        return res.status(400).send({
-            name: "Неизвестная ошибка",
+    }  if (err.isAxiosError) {
+        console.error("[ROUTER ERROR]", req.url, err.message);
+
+        return res.status(502).send({
+            name: "Ошибка подключения к роутеру",
             error: err.message,
         });
     }
+
+    console.error("[INTERNAL ERROR]", req.url, err);
+
+    return res.status(500).send({
+        name: "Внутренняя ошибка сервера",
+        error: "Внутренняя ошибка сервера",
+    });
 });
 
 
 app.listen(config.serverPort, () => {
-    console.log("Server running on port 3002");
+    console.log(`Server running on port ${config.serverPort}`);
 });
